@@ -5,21 +5,26 @@ from sqlalchemy.dialects.postgresql import JSONB
 import os
 import uuid
 from datetime import date
-
+from dotenv import load_dotenv
 # --- 1. Initialization ---
 app = Flask(__name__)
 
 # --- 2. Configuration ---
 # NOTE: Replace 'stationery_user' and 'my_strong_app_password' 
 # with the credentials you created in your PostgreSQL database.
-DATABASE_URL = os.environ.get(
-    'DATABASE_URL', 
-    'postgresql://postgres:route@localhost:5432/stationery_db'
-)
+
+
+load_dotenv()
+# Load database URL and secret from environment (.env). Prefer .env values, else fallback.
+DATABASE_URL = os.environ.get('DATABASE_URL') or os.getenv('DATABASE_URL')
+if not DATABASE_URL:
+    # Fallback to local SQLite for easy local development
+    DATABASE_URL = 'sqlite:///stationery.db'
+
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', str(uuid.uuid4()))
-app.config['CORS_HEADERS'] = 'Content-Type' 
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.getenv('SECRET_KEY', str(uuid.uuid4())))
+app.config['CORS_HEADERS'] = 'Content-Type'
 
 db = SQLAlchemy(app)
 # Allows the React frontend (running on a different port) to communicate with this API
