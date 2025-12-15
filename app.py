@@ -9,16 +9,10 @@ from dotenv import load_dotenv
 # --- 1. Initialization ---
 app = Flask(__name__)
 
-# --- 2. Configuration ---
-# NOTE: Replace 'stationery_user' and 'my_strong_app_password' 
-# with the credentials you created in your PostgreSQL database.
-
-
 load_dotenv()
-# Load database URL and secret from environment (.env). Prefer .env values, else fallback.
+
 DATABASE_URL = os.environ.get('DATABASE_URL') or os.getenv('DATABASE_URL')
 if not DATABASE_URL:
-    # Fallback to local SQLite for easy local development
     DATABASE_URL = 'sqlite:///stationery.db'
 
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
@@ -27,7 +21,6 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.getenv('SECRET_KEY', 
 app.config['CORS_HEADERS'] = 'Content-Type'
 
 db = SQLAlchemy(app)
-# Allows the React frontend (running on a different port) to communicate with this API
 CORS(app) 
 
 # --- 3. Database Models ---
@@ -40,7 +33,6 @@ class User(db.Model):
 
 # Categories Model (For FR11, FR14)
 class Category(db.Model):
-    # Category ID is used as the droppable ID in the frontend DND (FR12)
     id = db.Column(db.String(50), primary_key=True)
     name = db.Column(db.String(100), nullable=False, unique=True)
     items = db.relationship('Item', backref='category', lazy='dynamic') # Used for cascaded updates (FR13)
@@ -67,7 +59,6 @@ class Item(db.Model):
             'id': self.id,
             'name': self.name,
             'department': self.department,
-            # Format date as ISO string for React consumption
             'issuedDate': self.issued_date.isoformat(), 
             'categoryId': self.category_id,
         }
@@ -86,18 +77,13 @@ def login():
     username = data.get('username')
     password = data.get('password')
 
-    # FR2: Validate credentials (Simplified check against database 'admin' user)
     user = User.query.filter_by(username=username).first()
-    
-    # WARNING: This is an insecure demo implementation. 
-    # In production, use `werkzeug.security.check_password_hash`
+  
     if user and user.password == password:
         return jsonify({'message': 'Login successful', 'user': {'username': user.username}}), 200
-    
-    # FR4: Invalid login attempt protection 
     return jsonify({'message': 'Invalid username or password'}), 401
 
-## B. Category Management Module (FR11, FR14, FR12/FR13 support)
+            return jsonify({'message': 'Login successful', 'user': {'username': user.username, 'role': user.role}}), 200
 
 @app.route('/api/categories', methods=['GET'])
 def get_categories():
