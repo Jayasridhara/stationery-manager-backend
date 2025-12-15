@@ -30,6 +30,8 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False) # Store hashed passwords in a real app
+    # Role for RBAC (e.g., 'admin', 'buyer')
+    role = db.Column(db.String(20), nullable=False, default='buyer')
 
 # Categories Model (For FR11, FR14)
 class Category(db.Model):
@@ -78,12 +80,41 @@ def login():
     password = data.get('password')
 
     user = User.query.filter_by(username=username).first()
-  
     if user and user.password == password:
-        return jsonify({'message': 'Login successful', 'user': {'username': user.username}}), 200
+        return jsonify({'message': 'Login successful', 'user': {'username': user.username, 'role': user.role}}), 200
     return jsonify({'message': 'Invalid username or password'}), 401
 
-            return jsonify({'message': 'Login successful', 'user': {'username': user.username, 'role': user.role}}), 200
+
+@app.route('/api/register', methods=['POST'])
+def register():
+    data = request.get_json() or {}
+    username = data.get('username')
+    password = data.get('password')
+    role = data.get('role', 'buyer')
+
+    if not username or not password or role not in ('admin', 'buyer'):
+        return jsonify({'message': 'username, password and valid role (admin|buyer) are required'}), 400
+
+    if User.query.filter_by(username=username).first():
+        return jsonify({'message': 'Username already exists'}), 409
+    # Prevent more than one admin
+    if role == 'admin' and User.query.filter_by(role='admin').first():
+        return jsonify({'message': 'An admin account already exists'}), 403
+
+    try:
+        user = User(username=username, password=password, role=role)
+        db.session.add(user)
+        db.session.commit()
+        return jsonify({'message': 'User created', 'user': {'username': user.username, 'role': user.role}}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': f'Error creating user: {e}'}), 500
+
+
+@app.route('/api/admin-exists', methods=['GET'])
+def admin_exists():
+    exists = bool(User.query.filter_by(role='admin').first())
+    return jsonify({'exists': exists}), 200
 
 @app.route('/api/categories', methods=['GET'])
 def get_categories():
@@ -219,9 +250,9 @@ if __name__ == '__main__':
     # Creates database tables and a default admin user if not present
     with app.app_context():
         db.create_all()
-        # Initialize default admin user (username: admin, password: admin)
+        # Initialize default admin user (username: admin, password: admin, role: admin)
         if not User.query.filter_by(username='admin').first():
-            db.session.add(User(username='admin', password='admin')) 
+            db.session.add(User(username='admin', password='admin', role='admin')) 
             db.session.commit()
 
     app.run(debug=True, port=5000)
