@@ -74,6 +74,11 @@ class Item(db.Model):
 
 ## A. User Authentication Module (FR1, FR2)
 
+@app.route("/health")
+def health():
+    return {"status": "Backend is running"}
+
+
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.get_json()
@@ -258,6 +263,9 @@ def item_detail(item_id):
         except Exception as e:
             db.session.rollback()
             return jsonify({'message': f'Error deleting item: {e}'}), 500
+
+
+
 
 # --- 5. Application Runner ---
 
