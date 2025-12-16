@@ -5,6 +5,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 import os
 import uuid
 from datetime import date
+from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 # --- 1. Initialization ---
 app = Flask(__name__)
@@ -80,8 +81,23 @@ def login():
     password = data.get('password')
 
     user = User.query.filter_by(username=username).first()
-    if user and user.password == password:
+    if not user:
+        return jsonify({'message': 'Invalid username or password'}), 401
+
+    try:
+        if check_password_hash(user.password, password):
+            return jsonify({'message': 'Login successful', 'user': {'username': user.username, 'role': user.role}}), 200
+    except Exception:
+        pass
+
+    if user.password == password:
+        try:
+            user.password = generate_password_hash(password)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
         return jsonify({'message': 'Login successful', 'user': {'username': user.username, 'role': user.role}}), 200
+
     return jsonify({'message': 'Invalid username or password'}), 401
 
 
@@ -102,7 +118,8 @@ def register():
         return jsonify({'message': 'An admin account already exists'}), 403
 
     try:
-        user = User(username=username, password=password, role=role)
+        hashed = generate_password_hash(password)
+        user = User(username=username, password=hashed, role=role)
         db.session.add(user)
         db.session.commit()
         return jsonify({'message': 'User created', 'user': {'username': user.username, 'role': user.role}}), 201
@@ -138,7 +155,6 @@ def create_category():
         return jsonify(new_category.to_dict()), 201
     except Exception as e:
         db.session.rollback()
-        # Handle unique constraint violation (Category name already exists)
         return jsonify({'message': 'Category name already exists or internal error.'}), 409
 
 @app.route('/api/categories/<category_id>', methods=['DELETE'])
@@ -163,7 +179,6 @@ def category_detail(category_id):
 @app.route('/api/items', methods=['GET'])
 def get_items():
     items = Item.query.order_by(Item.name.asc()).all()
-    # FR10: Data consistency via ORM mapping
     return jsonify([item.to_dict() for item in items]), 200
 
 @app.route('/api/items', methods=['POST'])
@@ -252,7 +267,9 @@ if __name__ == '__main__':
         db.create_all()
         # Initialize default admin user (username: admin, password: admin, role: admin)
         if not User.query.filter_by(username='admin').first():
-            db.session.add(User(username='admin', password='admin', role='admin')) 
+            db.session.add(User(username='admin', password=generate_password_hash('admin'), role='admin')) 
             db.session.commit()
 
-    app.run(debug=True, port=5000)
+    import os
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
