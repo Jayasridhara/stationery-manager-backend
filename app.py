@@ -7,8 +7,6 @@ import uuid
 from datetime import date
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
-import logging
-import traceback
 # --- 1. Initialization ---
 app = Flask(__name__)
 
@@ -25,23 +23,6 @@ app.config['CORS_HEADERS'] = 'Content-Type'
 
 db = SQLAlchemy(app)
 CORS(app) 
-
-# Configure basic logging to stderr so deploy logs capture tracebacks
-logging.basicConfig(level=logging.INFO)
-
-
-# Global error handler: return JSON for unexpected exceptions and log traceback
-@app.errorhandler(Exception)
-def handle_unexpected_error(error):
-    # Log full traceback to stderr / Render logs
-    app.logger.error('Unhandled exception: %s', error)
-    tb = traceback.format_exc()
-    app.logger.error(tb)
-
-    # Return a minimal JSON error response for the frontend
-    response = jsonify({'message': 'Internal Server Error', 'error': str(error)})
-    response.status_code = 500
-    return response
 
 # --- 3. Database Models ---
 
@@ -92,11 +73,6 @@ class Item(db.Model):
 # --- 4. API Endpoints ---
 
 ## A. User Authentication Module (FR1, FR2)
-
-@app.route("/health")
-def health():
-    return {"status": "Backend is running"}
-
 
 @app.route('/api/login', methods=['POST'])
 def login():
@@ -283,19 +259,20 @@ def item_detail(item_id):
             db.session.rollback()
             return jsonify({'message': f'Error deleting item: {e}'}), 500
 
-
-
-
 # --- 5. Application Runner ---
 
 if __name__ == '__main__':
     # Creates database tables and a default admin user if not present
     with app.app_context():
-        db.create_all()
+        try:
+            db.create_all()
+            if not User.query.filter_by(username='admin').first():
+                db.session.add(User(username='admin', password=generate_password_hash('admin'), role='admin')) 
+                db.session.commit()
+        except Exception as e:
+            print("DB init skipped:", e)
         # Initialize default admin user (username: admin, password: admin, role: admin)
-        if not User.query.filter_by(username='admin').first():
-            db.session.add(User(username='admin', password=generate_password_hash('admin'), role='admin')) 
-            db.session.commit()
+        
 
     import os
     port = int(os.environ.get("PORT", 5000))
