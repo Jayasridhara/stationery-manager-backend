@@ -23,10 +23,10 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.getenv('SECRET_KEY', 
 app.config['CORS_HEADERS'] = 'Content-Type'
 
 db = SQLAlchemy(app)
+
 CORS(app) 
 
-# --- 3. Database Models ---
-
+# --- 3. Database Models -------
 # User Model (For FR1, FR2)
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -70,6 +70,16 @@ class Item(db.Model):
         if self.dynamic_attributes:
             data.update(self.dynamic_attributes)
         return data
+
+# Initialize DB on import so Gunicorn workers have tables created
+with app.app_context():
+    try:
+        db.create_all()
+        if not User.query.filter_by(username='admin').first():
+            db.session.add(User(username='admin', password=generate_password_hash('admin'), role='admin'))
+            db.session.commit()
+    except Exception as e:
+        print("DB init skipped:", e)
 
 # --- 4. API Endpoints ---
 
@@ -271,19 +281,7 @@ def item_detail(item_id):
 # --- 5. Application Runner ---
 
 if __name__ == '__main__':
-
-    # Creates database tables and a default admin user if not present
-    with app.app_context():
-        try:
-            db.create_all()
-            if not User.query.filter_by(username='admin').first():
-                db.session.add(User(username='admin', password=generate_password_hash('admin'), role='admin')) 
-                db.session.commit()
-        except Exception as e:
-            print("DB init skipped:", e)
-        # Initialize default admin user (username: admin, password: admin, role: admin)
-        
-
+    # Run the app. DB initialization is performed at import-time above.
     import os
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
