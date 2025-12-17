@@ -74,6 +74,15 @@ class Item(db.Model):
 
 ## A. User Authentication Module (FR1, FR2)
 
+@app.route("/api/db-test")
+def db_test():
+    try:
+        db.session.execute("SELECT 1")
+        return {"status": "Database connected successfully"}, 200
+    except Exception as e:
+        return {"error": str(e)}, 500
+    
+
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.get_json()
@@ -262,6 +271,7 @@ def item_detail(item_id):
 # --- 5. Application Runner ---
 
 if __name__ == '__main__':
+
     # Creates database tables and a default admin user if not present
     with app.app_context():
         try:
