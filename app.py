@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import text
 import os
 import uuid
 from datetime import date
@@ -77,12 +78,11 @@ class Item(db.Model):
 @app.route("/api/db-test")
 def db_test():
     try:
-        db.session.execute("SELECT 1")
+        db.session.execute(text("SELECT 1"))
         return {"status": "Database connected successfully"}, 200
     except Exception as e:
         return {"error": str(e)}, 500
     
-
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.get_json()
