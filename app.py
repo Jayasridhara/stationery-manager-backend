@@ -32,7 +32,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False) # Store hashed passwords in a real app
-    # Role for RBAC (e.g., 'admin', 'buyer')
+    # Role for  (e.g., 'admin', 'buyer')
     role = db.Column(db.String(20), nullable=False, default='buyer')
 
 # Categories Model (For FR11, FR14)
